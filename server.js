@@ -22,7 +22,9 @@ const corsOptions = {
   exposedHeaders: ["Set-Cookie"]
 }
 
-
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'API Furia Backend está ativa!' });
+});
 app.use(cors(corsOptions))
 app.options('*', cors(corsOptions))
 
