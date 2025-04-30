@@ -14,7 +14,7 @@ const app = express()
 const corsOptions = {
   origin: [
     "http://localhost:3000",
-    "https://https://furia-fan-page.vercel.app/"
+    "https://furia-fan-page.vercel.app"  //vercel
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
