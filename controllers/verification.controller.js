@@ -1,6 +1,7 @@
 // verification.controller.js
 const multer = require('multer');
 const axios = require('axios');
+const { db } = require('../config/firebase'); 
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -50,10 +51,21 @@ exports.verifyIdentity = [
       const { data } = await axios.post(GEMINI_API_URL, requestData);
       const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text?.toLowerCase();
 
+      let faceVerified = false;
       if (resultText?.includes("correspondência")) {
-        return res.json({ success: true, faceVerified: true });
+        faceVerified = true;
+      }
+
+      // Assumindo que você tem acesso ao ID do usuário através de req.user (se o middleware protect estiver funcionando)
+      if (req.user && req.user.id) {
+        // Atualize o documento do usuário no Firestore
+        const userRef = db.collection('users').doc(req.user.id);
+        await userRef.update({ faceVerified: faceVerified });
+        return res.json({ success: true, faceVerified: faceVerified });
       } else {
-        return res.json({ success: false, faceVerified: false, message: 'Rosto não corresponde ao documento.' });
+        // Se não houver usuário autenticado, você precisará de outra forma de identificar o registro a ser atualizado
+        console.warn("Usuário não autenticado ao verificar a identidade.");
+        return res.status(401).json({ success: false, message: "Usuário não autenticado." });
       }
 
     } catch (error) {
