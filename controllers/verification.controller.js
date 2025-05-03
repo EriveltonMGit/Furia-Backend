@@ -207,7 +207,7 @@ exports.getVerificationStatus = async (req, res) => {
           });
       }
 
-      // Primeiro verifica na coleção 'users'
+      // 1. Primeiro verifica na coleção 'users'
       const userDoc = await db.collection('users').doc(userId).get();
       
       if (userDoc.exists && userDoc.data().faceVerified !== undefined) {
@@ -217,30 +217,27 @@ exports.getVerificationStatus = async (req, res) => {
               status: userData.verificationStatus || 'pending',
               faceVerified: userData.faceVerified || false,
               confidence: userData.verification_confidence,
-              verificationDate: userData.verification_date 
-                  ? userData.verification_date.toDate() 
-                  : null
+              verificationDate: userData.verification_date?.toDate() || null
           });
       }
 
-      // Se não encontrar em 'users', busca em 'profiles'
-      const profileDoc = await db.collection('profiles').doc(userId).get();
+      // 2. Se não encontrar, busca na coleção 'profiles' com filtro
+      const profilesQuery = db.collection('profiles')
+          .where('user_id', '==', userId)
+          .where('face_verified', '!=', null)
+          .limit(1);
 
-      if (profileDoc.exists()) {
-          const profileData = profileDoc.data();
-          
-          // Verifica se este é o documento de verificação
-          if (profileData.face_verified !== undefined) {
-              return res.status(200).json({
-                  success: true,
-                  status: profileData.verification_status || 'pending',
-                  faceVerified: profileData.face_verified || false,
-                  confidence: profileData.verification_confidence,
-                  verificationDate: profileData.verification_date 
-                      ? profileData.verification_date.toDate() 
-                      : null
-              });
-          }
+      const querySnapshot = await profilesQuery.get();
+      
+      if (!querySnapshot.empty) {
+          const profileData = querySnapshot.docs[0].data();
+          return res.status(200).json({
+              success: true,
+              status: profileData.verification_status || 'pending',
+              faceVerified: profileData.face_verified || false,
+              confidence: profileData.verification_confidence,
+              verificationDate: profileData.verification_date?.toDate() || null
+          });
       }
 
       return res.status(404).json({ 
@@ -257,3 +254,4 @@ exports.getVerificationStatus = async (req, res) => {
       });
   }
 };
+
