@@ -13,15 +13,19 @@ const app = express()
 // Configuração melhorada de CORS
 const corsOptions = {
   origin: [
-    "http://localhost:3000",  // Para desenvolvimento local
-    "https://furia-wheat.vercel.app", // Frontend da Vercel
+    "http://localhost:3000",
+    "https://furia-wheat.vercel.app",
   ],
-  credentials: true,  // Permite o envio de cookies
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  allowedHeaders: [
+    "Content-Type", 
+    "Authorization", 
+    "X-Requested-With",
+    "X-Access-Token", // Adicione este header personalizado
+  ],
   exposedHeaders: ["Set-Cookie"],
-}
-
+};
 
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'API Furia Backend está ativa!' });
@@ -49,7 +53,7 @@ connectDB().catch(err => {
 app.use("/api/auth", require("./routes/auth.routes"))
 app.use("/api/users", require("./routes/user.routes"))
 app.use("/api/profile", require("./routes/profile.routes"))
-
+app.use("/api/verification", require("./routes/verification.routes"));
 // Health Check
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "UP" })

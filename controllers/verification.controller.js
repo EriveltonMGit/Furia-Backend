@@ -14,6 +14,10 @@ exports.verifyIdentity = [
     { name: 'selfie', maxCount: 1 }
   ]),
   async (req, res) => {
+    console.log('Requisição de verificação recebida');
+    console.log('Headers:', req.headers);
+    console.log('Cookies:', req.cookies);
+    console.log('Usuário autenticado:', req.user ? 'Sim' : 'Não');
     try {
       if (!req.files || !req.files.idDocument || !req.files.selfie) {
         return res.status(400).json({ 
