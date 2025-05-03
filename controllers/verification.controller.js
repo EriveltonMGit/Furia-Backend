@@ -1,9 +1,10 @@
+// Seu arquivo verification.controller.js - COMPLETO
 const { getGeminiResponse } = require("../utils/gemini");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
-const { db, admin } = require("../config/firebase"); // Importe o db
+const { db, admin } = require("../config/firebase");
 
 // Configuração do multer para upload de arquivos
 const storage = multer.diskStorage({
@@ -22,7 +23,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 10 * 1024 * 1024 }, // Aumenta o limite do multer para 10MB
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith("image/")) {
             cb(null, true);
@@ -46,7 +47,6 @@ exports.verifyIdentity = (req, res) => {
                 return res.status(400).json({ success: false, message: "Documento de identidade e selfie são obrigatórios" });
             }
 
-            // ✅ Obter o userId do corpo da requisição
             const { userId } = req.body;
             if (!userId) {
                 return res.status(400).json({ success: false, message: "ID do usuário é obrigatório no corpo da requisição" });
@@ -74,13 +74,11 @@ exports.verifyIdentity = (req, res) => {
                 "reasons": string[] (razões para a decisão)
             }`;
 
-            // Obter resposta do Gemini
             const geminiResponse = await getGeminiResponse(prompt, [
                 { mimeType: "image/jpeg", data: idDocumentBase64 },
                 { mimeType: "image/jpeg", data: selfieBase64 },
             ]);
 
-            // Limpar arquivos temporários
             fs.unlinkSync(idDocumentPath);
             fs.unlinkSync(selfiePath);
 
@@ -88,13 +86,11 @@ exports.verifyIdentity = (req, res) => {
             try {
                 verificationResult = JSON.parse(geminiResponse);
             } catch (parseError) {
-                // Se não conseguir parsear o JSON, tenta analisar o texto
                 const isMatch =
                     geminiResponse.toLowerCase().includes("correspondência") ||
                     geminiResponse.toLowerCase().includes("match") ||
                     geminiResponse.toLowerCase().includes("mesma pessoa");
 
-                // Extrair pontuação de confiança se disponível
                 let confidence = 0;
                 const confidenceMatch = geminiResponse.match(/(\d+\.\d+)/);
                 if (confidenceMatch && confidenceMatch[1]) {
@@ -103,13 +99,12 @@ exports.verifyIdentity = (req, res) => {
                 verificationResult = { match: isMatch, confidence };
             }
 
-            // Salvar o resultado da verificação no banco de dados
             const profileRef = db.collection('profiles').doc(userId);
             await profileRef.set({
                 verification_status: verificationResult.match ? 'verified' : 'pending',
                 face_verified: verificationResult.match,
                 verification_confidence: verificationResult.confidence,
-                verification_date: admin.firestore.Timestamp.fromDate(new Date()), // Usar a data atual do servidor
+                verification_date: admin.firestore.Timestamp.fromDate(new Date()),
                 updated_at: admin.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
 
@@ -123,85 +118,80 @@ exports.verifyIdentity = (req, res) => {
 
         } catch (error) {
             console.error("Erro na verificação de identidade:", error);
-            res.status(500).json({ success: false, message: "Erro ao processar a verificação de identidade" });
+            res.status(500).json({ success: false, message: "Erro ao processar a verificação de identidade", error: error.message });
         }
     });
 };
 
-// Rota para salvar o resultado (pode ser útil para outros cenários, mantemos)
-// Em verification.controller.js, modifique a rota save-result:
 exports.saveVerificationResult = async (req, res) => {
-  try {
-    const { userId, faceVerified, confidence } = req.body;
+    try {
+        const { userId, faceVerified, confidence } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "ID do usuário é obrigatório" });
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "ID do usuário é obrigatório" });
+        }
+
+        const profileRef = db.collection('profiles').doc(userId);
+        await profileRef.update({
+            verification_status: faceVerified ? 'verified' : 'pending',
+            face_verified: faceVerified,
+            verification_confidence: confidence,
+            verification_date: admin.firestore.FieldValue.serverTimestamp(),
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        const userRef = db.collection('users').doc(userId);
+        await userRef.update({
+            faceVerified: faceVerified,
+            verificationDate: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Resultado da verificação salvo com sucesso"
+        });
+
+    } catch (error) {
+        console.error("Erro ao salvar verificação:", error);
+        res.status(500).json({
+            success: false,
+            message: "Erro ao salvar resultado da verificação",
+            error: error.message
+        });
     }
-
-    // Atualizar o perfil
-    const profileRef = db.collection('profiles').doc(userId);
-    await profileRef.update({
-      verification_status: faceVerified ? 'verified' : 'pending',
-      face_verified: faceVerified,
-      verification_confidence: confidence,
-      verification_date: admin.firestore.FieldValue.serverTimestamp(),
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    // Atualizar também o documento do usuário principal se necessário
-    const userRef = db.collection('users').doc(userId);
-    await userRef.update({
-      faceVerified: faceVerified,
-      verificationDate: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    res.status(200).json({ 
-      success: true, 
-      message: "Resultado da verificação salvo com sucesso" 
-    });
-
-  } catch (error) {
-    console.error("Erro ao salvar verificação:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Erro ao salvar resultado da verificação" 
-    });
-  }
-  
 };
 
 exports.completeVerification = async (req, res) => {
-  try {
-    const { userId } = req.body;
+    try {
+        const { userId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({ success: false, message: "ID do usuário é obrigatório" });
+        if (!userId) {
+            return res.status(400).json({ success: false, message: "ID do usuário é obrigatório" });
+        }
+
+        const profileRef = db.collection('profiles').doc(userId);
+        await profileRef.update({
+            verification_status: 'completed',
+            updated_at: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        const userRef = db.collection('users').doc(userId);
+        await userRef.update({
+            verificationCompleted: true,
+            verificationCompletionDate: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Verificação marcada como completa com sucesso"
+        });
+
+    } catch (error) {
+        console.error("Erro ao completar verificação:", error);
+        res.status(500).json({
+            success: false,
+            message: "Erro ao completar o processo de verificação",
+            error: error.message
+        });
     }
-
-    // Atualizar o status de verificação para 'completed'
-    const profileRef = db.collection('profiles').doc(userId);
-    await profileRef.update({
-      verification_status: 'completed',
-      updated_at: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    // Atualizar também o documento do usuário principal se necessário
-    const userRef = db.collection('users').doc(userId);
-    await userRef.update({
-      verificationCompleted: true,
-      verificationCompletionDate: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Verificação marcada como completa com sucesso"
-    });
-
-  } catch (error) {
-    console.error("Erro ao completar verificação:", error);
-    res.status(500).json({
-      success: false,
-      message: "Erro ao completar o processo de verificação"
-    });
-  }
 };
