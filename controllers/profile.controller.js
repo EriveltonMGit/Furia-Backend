@@ -359,4 +359,3 @@ exports.updateVerificationStatus = async (req, res) => {
     })
   }
 }
-z
