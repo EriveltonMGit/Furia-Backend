@@ -1,16 +1,10 @@
-const express = require("express")
-const router = express.Router()
-const verificationController = require("../controllers/verification.controller")
-const { protect } = require("../middleware/auth.middleware")
+const express = require("express");
+const router = express.Router();
+const verificationController = require("../controllers/verification.controller");
+// const { protect } = require("../middleware/auth.middleware"); // Remova a importação do middleware, pois não estamos usando proteção aqui
 
-// Rota para verificar a identidade - agora sem proteção obrigatória
-router.post("/verify-identity", verificationController.verifyIdentity)
-
-// Rota GET para instruir sobre o uso (opcional)
-router.get("/verify-identity", (req, res) => {
-  res.send(
-    'Esta rota é para verificar a identidade. Use o método POST com os campos "idDocument" e "selfie" no formato multipart/form-data. A autenticação é opcional.',
-  )
-})
-
-module.exports = router
+// Rota para verificar a identidade e salvar o resultado (sem proteção)
+router.post("/verify-identity", verificationController.verifyIdentity);
+router.post("/save-result", /* protect, */ verificationController.saveVerificationResult); // Mantemos a rota de salvar, sem proteção por enquanto
+router.post("/complete-verification", verificationController.completeVerification); // ✅ Adicione o controller aqui
+module.exports = router;
