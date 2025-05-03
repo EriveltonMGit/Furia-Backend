@@ -195,3 +195,65 @@ exports.completeVerification = async (req, res) => {
         });
     }
 };
+
+exports.getVerificationStatus = async (req, res) => {
+  try {
+      const { userId } = req.params;
+
+      if (!userId) {
+          return res.status(400).json({ 
+              success: false, 
+              message: "ID do usuário é obrigatório" 
+          });
+      }
+
+      // Primeiro verifica na coleção 'users'
+      const userDoc = await db.collection('users').doc(userId).get();
+      
+      if (userDoc.exists && userDoc.data().faceVerified !== undefined) {
+          const userData = userDoc.data();
+          return res.status(200).json({
+              success: true,
+              status: userData.verificationStatus || 'pending',
+              faceVerified: userData.faceVerified || false,
+              confidence: userData.verification_confidence,
+              verificationDate: userData.verification_date 
+                  ? userData.verification_date.toDate() 
+                  : null
+          });
+      }
+
+      // Se não encontrar em 'users', busca em 'profiles'
+      const profileDoc = await db.collection('profiles').doc(userId).get();
+
+      if (profileDoc.exists()) {
+          const profileData = profileDoc.data();
+          
+          // Verifica se este é o documento de verificação
+          if (profileData.face_verified !== undefined) {
+              return res.status(200).json({
+                  success: true,
+                  status: profileData.verification_status || 'pending',
+                  faceVerified: profileData.face_verified || false,
+                  confidence: profileData.verification_confidence,
+                  verificationDate: profileData.verification_date 
+                      ? profileData.verification_date.toDate() 
+                      : null
+              });
+          }
+      }
+
+      return res.status(404).json({ 
+          success: false, 
+          message: "Dados de verificação não encontrados" 
+      });
+
+  } catch (error) {
+      console.error("Erro ao obter o status de verificação:", error);
+      res.status(500).json({
+          success: false,
+          message: "Erro ao buscar o status de verificação",
+          error: error.message
+      });
+  }
+};
