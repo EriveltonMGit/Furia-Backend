@@ -49,7 +49,6 @@ connectDB().catch(err => {
 app.use("/api/auth", require("./routes/auth.routes"))
 app.use("/api/users", require("./routes/user.routes"))
 app.use("/api/profile", require("./routes/profile.routes"))
-app.use("/api/verification", require("./routes/verification.routes"));
 
 // Health Check
 app.get("/health", (req, res) => {
